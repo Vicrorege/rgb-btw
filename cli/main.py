@@ -80,12 +80,13 @@ def add(name, host, port, user, passwd, topic):
 @cli.command()
 @click.argument("name")
 @click.option("--toggle", "-t", is_flag=True, help="Toggles on/off strip condition")
-@click.option("--color", "-c", help="Sets binded color")
-@click.option("--rgbR", "-R", help="Sets R-component in RGB palette")
-@click.option("--rgbG", "-G", help="Sets G-component in RGB palette")
-@click.option("--rgbB", "-B", help="Sets B-component in RGB palette")
-@click.option("--brightness", "-b", type=int, help="Sets brightness")
-def set(name, toggle, color, rgbr, rgbg, rgbb, brightness):
+@click.option("--color", "-c", default="-1", help="Sets binded color")
+@click.option("--rgbR", "-R", default=-1, help="Sets R-component in RGB palette")
+@click.option("--rgbG", "-G", default=-1, help="Sets G-component in RGB palette")
+@click.option("--rgbB", "-B", default=-1, help="Sets B-component in RGB palette")
+@click.option("--brightness", "-b", default=-1, type=int, help="Sets brightness")
+@click.option("--rainbow", "-r", is_flag=True, help="Sets rainbow color")
+def set(name, toggle, color, rgbr, rgbg, rgbb, brightness, rainbow):
     """Set condition of the strip"""
     binds = {
         "red": (255, 0, 0),
@@ -116,23 +117,47 @@ def set(name, toggle, color, rgbr, rgbg, rgbb, brightness):
         out = db_cur.fetchall()
         db_cur.close()
         db.close
-        print(out)
+        # print(out)
         if out!=[]:
-            msg=0
+            if (color!="-1") ^ (rgbr!=-1 or rgbb!=-1 or rgbg!=-1) ^ rainbow:
+                R=rgbr
+                G=rgbg
+                B=rgbb
+                if color != "-1":
+                    if color in list(binds.keys()):
+                        R=binds[color][0]
+                        G=binds[color][1]
+                        B=binds[color][2]
+                    else:
+                        raise Exception("Color not found!")
+                msg="$"+":".join(
+                    [
+                        "s",
+                        str(toggle),
+                        str(R),
+                        str(G),
+                        str(B),
+                        str(rainbow),
+                        str(brightness)
+                    ]
+                )
 
-            broker = out[0][0]
-            port = out[0][1]
-            user = out[0][2]
-            passwd = out[0][3]
-            topic = out[0][4]
-            
-            connection = connect_mqtt(user, passwd, broker, port)
-            result = connection.publish(topic, str(msg), qos=1)
-            print(result)
+                broker = out[0][0]
+                port = out[0][1]
+                user = out[0][2]
+                passwd = out[0][3]
+                topic = out[0][4]
+                
+                connection = connect_mqtt(user, passwd, broker, port)
+                result = connection.publish(topic, str(msg), qos=1)
+                if result[1] == 1:
+                    click.echo(click.style("Request sent successfully!", fg="green"))
+            else:
+                raise Exception("Choose only one color variant")
         else:
             raise Exception("Device is not found!")
     except Exception as e:
-        click.echo(click.style(f"Error while commiting request: {e}", fg="red"))
+        click.echo(click.style(f"Error while sending request: {e}", fg="red"))
 
 if __name__ == '__main__':
     cli()
