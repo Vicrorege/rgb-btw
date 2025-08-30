@@ -8,22 +8,10 @@ from pathlib import Path
 basedir = Path(__file__).parent.absolute()
 
 def connect_mqtt(username, password, broker, port):
-    def on_connect(client, userdata, flags, reason_code, properties):
-        if reason_code == 0:
-            print("Connected to MQTT Broker!")
-        else:
-            print(f"Failed to connect, return code {reason_code}")
-
-    # Создаем клиента с указанием версии callback API (рекомендуется VERSION2)
     client = mqtt_client.Client(mqtt_client.CallbackAPIVersion.VERSION2, client_id=str(random.randint(0, 1000)))
     
-    # Устанавливаем логин и пароль
     client.username_pw_set(username, password)
-    
-    # Назначаем callback функцию для подключения
-    client.on_connect = on_connect
-    
-    # Подключаемся к брокеру
+        
     client.connect(broker, port)
     return client
 
@@ -119,7 +107,7 @@ def set(name, toggle, color, rgbr, rgbg, rgbb, brightness, rainbow):
         db.close
         # print(out)
         if out!=[]:
-            if (color!="-1") ^ (rgbr!=-1 or rgbb!=-1 or rgbg!=-1) ^ rainbow:
+            if ((color!="-1") ^ (rgbr!=-1 or rgbb!=-1 or rgbg!=-1) ^ rainbow) or toggle:
                 R=rgbr
                 G=rgbg
                 B=rgbb
@@ -150,6 +138,7 @@ def set(name, toggle, color, rgbr, rgbg, rgbb, brightness, rainbow):
                 
                 connection = connect_mqtt(user, passwd, broker, port)
                 result = connection.publish(topic, str(msg), qos=1)
+                connection.disconnect()
                 if result[1] == 1:
                     click.echo(click.style("Request sent successfully!", fg="green"))
             else:
@@ -158,6 +147,44 @@ def set(name, toggle, color, rgbr, rgbg, rgbb, brightness, rainbow):
             raise Exception("Device is not found!")
     except Exception as e:
         click.echo(click.style(f"Error while sending request: {e}", fg="red"))
+
+got=""
+
+@cli.command()
+@click.argument("name")
+def get(name):
+    """Get condition of the strip"""
+    def on_message(client, userdata, msg):
+        global got
+        if not msg.payload.decode().startswith("$"):
+            got=msg.payload.decode()
+            client.disconnect()
+    try:
+        db = sqlite3.connect(basedir / "db.db")
+        db_cur = db.cursor()
+        db_cur.execute(f'''SELECT host, port, user, passwd, topic FROM devices WHERE name="{name}"''')
+        out = db_cur.fetchall()
+        db_cur.close()
+        db.close
+        # print(out)
+        if out!=[]:
+            broker = out[0][0]
+            port = out[0][1]
+            user = out[0][2]
+            passwd = out[0][3]
+            topic = out[0][4]
+            connection = connect_mqtt(user, passwd, broker, port)
+            connection.on_message = on_message
+            connection.loop_start()
+            connection.subscribe(topic)
+            result = connection.publish(topic, "$g", qos=1)
+            while got=="":
+                pass
+            print(got)
+        else:
+            raise Exception("Device is not found!")
+    except Exception as e:
+        click.echo(click.style(f"Error while getting answer: {e}", fg="red"))
 
 if __name__ == '__main__':
     cli()
