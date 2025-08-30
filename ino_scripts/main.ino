@@ -2,7 +2,7 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <Adafruit_NeoPixel.h>
-#include <EEPROM.h>  // Добавлена библиотека EEPROM
+#include <EEPROM.h> 
 
 // settings
 // wi-fi settings
@@ -21,10 +21,9 @@ const char* mqtt_topic = "rgb/lamp";
 #define pixels_count 5
 
 // EEPROM settings
-#define EEPROM_SIZE 512      // Размер EEPROM (байт)
-#define EEPROM_ADDR 0        // Адрес начала данных
+#define EEPROM_SIZE 512     
+#define EEPROM_ADDR 0       
 
-// Структура для хранения данных
 struct StripState {
   bool stripOn;
   int currentR;
@@ -52,13 +51,12 @@ StripState state = {
 // functions
 void saveStateToEEPROM() {
   EEPROM.put(EEPROM_ADDR, state);
-  EEPROM.commit();  // Важно: сохраняем данные в флеш
+  EEPROM.commit();  
   Serial.println("State saved to EEPROM");
 }
 
 void loadStateFromEEPROM() {
   EEPROM.get(EEPROM_ADDR, state);
-  // Проверяем, что данные корректны (первая загрузка)
   if (state.currentR < 0 || state.currentR > 255) {
     state.stripOn = true;
     state.currentR = 255;
@@ -66,7 +64,7 @@ void loadStateFromEEPROM() {
     state.currentB = 255;
     state.currentBrightness = 100;
     state.rainbowMode = false;
-    saveStateToEEPROM();  // Сохраняем значения по умолчанию
+    saveStateToEEPROM(); 
   }
   Serial.println("State loaded from EEPROM");
 }
@@ -142,7 +140,7 @@ void processSetCommand(String parameters) {
     String newRainbow = parts[4];
     String newBrightness = parts[5];
     
-    bool stateChanged = false;  // Флаг изменения состояния
+    bool stateChanged = false;
     
     if (newStripOn != "-1") {
       bool newState;
@@ -205,7 +203,6 @@ void processSetCommand(String parameters) {
     
     applyStripSettings();
     
-    // Сохраняем в EEPROM только если состояние изменилось
     if (stateChanged) {
       saveStateToEEPROM();
     }
@@ -264,7 +261,6 @@ void reconnect() {
 void setup() {
   Serial.begin(115200);
   
-  // Инициализация EEPROM
   EEPROM.begin(EEPROM_SIZE);
   loadStateFromEEPROM();
   
