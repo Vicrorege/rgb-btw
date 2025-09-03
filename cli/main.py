@@ -4,6 +4,7 @@ import random
 import click
 import sqlite3
 from pathlib import Path
+from tabulate import tabulate
 
 basedir = Path(__file__).parent.absolute()
 
@@ -185,6 +186,45 @@ def get(name):
             raise Exception("Device is not found!")
     except Exception as e:
         click.echo(click.style(f"Error while getting answer: {e}", fg="red"))
+
+@cli.command()
+@click.argument("name")
+def remove(name):
+    """Removes device"""
+    try:
+        db = sqlite3.connect(basedir / "db.db")
+        db_cur = db.cursor()
+        db_cur.execute(f'''SELECT host FROM devices WHERE name="{name}"''')
+        out = db_cur.fetchall()
+        db_cur.close()
+        db.close
+        if out!=[]:
+            db = sqlite3.connect(basedir / "db.db")
+            db_cur = db.cursor()
+            db_cur.execute(f'''DELETE FROM devices WHERE name="{name}"''')
+            db.commit()
+            db_cur.close()
+            db.close
+            click.echo(click.style("Device successfully removed!", fg="green"))
+        else:
+            raise Exception("Device is not found!")
+    except Exception as e:
+        click.echo(click.style(f"Error while removing device: {e}", fg="red"))
+
+@cli.command()
+def list():
+    """Lists all devices"""
+    try:
+        db = sqlite3.connect(basedir / "db.db")
+        db_cur = db.cursor()
+        db_cur.execute('''SELECT id, name, host, port, user, topic FROM devices''')
+        out = db_cur.fetchall()
+        db_cur.close()
+        db.close
+        headers = ["\033[36mID\033[0m", "\033[33m\033[4mNAME\033[0m\033[0m", "\033[35mHOST\033[0m", "\033[35mPORT\033[0m", "\033[35mUSER\033[0m", "\033[35mTOPIC\033[0m"]
+        print(tabulate(out, headers, tablefmt="fancy_grid"))
+    except Exception as e:
+        click.echo(click.style(f"Error while listing devices: {e}", fg="red"))
 
 if __name__ == '__main__':
     cli()
